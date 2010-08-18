@@ -8,7 +8,8 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from logistic_sgd import LogisticRegression, load_data
+from logistic_sgd import LogisticRegression 
+from load_names import load_data
 from mlp import HiddenLayer
 from rbm import RBM
 

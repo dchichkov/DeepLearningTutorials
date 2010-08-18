@@ -40,11 +40,13 @@ def load_data(dataset):
     # >>> import nltk
     # >>> nltk.download("names")
     #
+    # import nltk
     # from nltk.corpus import names
     # names = ([(name, 1) for name in names.words('male.txt')] +
     #         [(name, 0) for name in names.words('female.txt')])
     
-    # fake male/female names, random letters, 5-15 in length
+
+    # Using fake male/female names, random letters, 5-15 in length
     #  female ends on 'a', 'e', 'i'
     #  male ends on 'k', 'o', 'r', 's', 't'
     def fake():
@@ -69,7 +71,6 @@ def load_data(dataset):
         corpus.append((v, label))
 
     random.shuffle(corpus)
-    print corpus[:1]
 
     train_set = ([corpus[i][0] for i in xrange(0, TRAIN)], 
                  [corpus[i][1] for i in xrange(0, TRAIN)] )
@@ -77,7 +78,12 @@ def load_data(dataset):
                  [corpus[i][1] for i in xrange(TRAIN, TRAIN + VALID)] )
     test_set = ([corpus[i][0] for i in xrange(TRAIN + VALID, TRAIN + VALID + TEST)],
                 [corpus[i][1] for i in xrange(TRAIN + VALID, TRAIN + VALID + TEST)] )
-    # for v in train_set[0]: print v
+    
+    print 'input ='
+    for i in xrange(V_DIM * X_DIM):
+        print train_set[0][0][i],
+        if not (i+1)%V_DIM: print
+    print 'label =', train_set[1][0]
 
     def shared_dataset(data_xy):
         """ Function that loads the dataset into shared variables
