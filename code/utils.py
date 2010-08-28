@@ -114,9 +114,9 @@ def tile_raster_images(X, img_shape, tile_shape,tile_spacing = (0,0),
                         # if we should scale values to be between 0 and 1 
                         # do this by calling the `scale_to_unit_interval`
                         # function
-                        this_img = scale_to_unit_interval(X[tile_row * tile_shape[1] + tile_col].reshape(img_shape))
+                        this_img = scale_to_unit_interval(X[tile_row * tile_shape[1] + tile_col].reshape( tuple(reversed(img_shape)) )).T
                     else:
-                        this_img = X[tile_row * tile_shape[1] + tile_col].reshape(img_shape)
+                        this_img = X[tile_row * tile_shape[1] + tile_col].reshape( tuple(reversed(img_shape)) ).T
                     # add the slice to the corresponding position in the 
                     # output array
                     c = 1
