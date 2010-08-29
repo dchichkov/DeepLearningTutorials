@@ -2,7 +2,9 @@
 # -*- coding: utf-8  -*-
 from __future__ import division
 
-import mad, numpy, random
+import mad, numpy, random, os
+from theano.tensor.shared_randomstreams import RandomStreams
+from utils import tile_raster_images
 import theano
 import theano.tensor as T
 
@@ -42,7 +44,7 @@ def load_data(dataset):
         channel = 0
         for sample in xrange(X_DIM):
             for subband in reversed(xrange(S_DIM)):
-                frame.append(mf.subband_value(channel, sample, subband) + 0.5)
+                frame.append((mf.subband_value(channel, sample, subband) + 1.0) / 2)
                 # fake it
                 #frame.append(subband / S_DIM * len(frames) / 2294)
         frames.append(frame)
@@ -53,8 +55,9 @@ def load_data(dataset):
         pass
     
     # corpus size
-    SIZE = len(frames) // (60+12+6)
-    TRAIN = 60*SIZE; VALID = 12*SIZE; TEST = 6*SIZE;
+    (TRAIN, VALID, TEST) = (60, 0, 0)
+    SIZE = len(frames) // (TRAIN+VALID+TEST)
+    (TRAIN, VALID, TEST) = (TRAIN * SIZE, VALID * SIZE, TEST * SIZE)
     print 'frames =', len(frames), 'TRAIN = ', TRAIN
     
 
@@ -105,12 +108,135 @@ def load_data(dataset):
     valid_set_x, valid_set_y = shared_dataset(valid_set)
     train_set_x, train_set_y = shared_dataset(train_set)
     print train_set_x.value
-    rval = ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y))
+    rval = [(train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)]
     return rval
 
-if __name__ == "__main__":
+
+
+
+
+def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/mp3/hhgttg01010060.mp3',
+        batch_size = 20, output_folder = 'dA_plots' ):
+
+    """
+    This demo is tested on /home/dmitry/mp3/hhgttg01010060.mp2
+
+    :type learning_rate: float
+    :param learning_rate: learning rate used for training the DeNosing AutoEncoder
+
+    :type training_epochs: int
+    :param training_epochs: number of epochs used for training 
+
+    :type dataset: string
+    :param dataset: path to the picked dataset
+
+    """
+    datasets = load_data(dataset)
+    train_set_x, train_set_y = datasets[0]
+
+    # compute number of minibatches for training, validation and testing
+    n_train_batches = train_set_x.value.shape[0] / batch_size
+
+    # allocate symbolic variables for the data
+    index = T.lscalar()    # index to a [mini]batch 
+    x     = T.matrix('x')  # the data is presented as rasterized images
+
+    
+    if not os.path.isdir(output_folder):
+        os.makedirs(output_folder)
+    os.chdir(output_folder)
+    ####################################
+    # BUILDING THE MODEL NO CORRUPTION #
+    ####################################
+
+    rng        = numpy.random.RandomState(123)
+    theano_rng = RandomStreams( rng.randint(2**30))
+
+    da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
+            n_visible = S_DIM * F_DIM * X_DIM, n_hidden = 1000)
+
+    cost, updates = da.get_cost_updates(corruption_level = 0.,
+                                learning_rate = learning_rate)
+
+    
+    train_da = theano.function([index], cost, updates = updates,
+         givens = {x:train_set_x[index*batch_size:(index+1)*batch_size]})
+    
+    start_time = time.clock()
+
+    ############
+    # TRAINING #
+    ############
+
+    # go through training epochs
+    for epoch in xrange(training_epochs):
+        # go through trainng set
+        c = []
+        for batch_index in xrange(n_train_batches):
+            c.append(train_da(batch_index))
+
+        print 'Training epoch %d, cost '%epoch, numpy.mean(c)
+
+    end_time = time.clock()
+
+    training_time = (end_time - start_time)
+
+    print >> sys.stderr, ('The no corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((training_time)/60.))
+    image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
+                 img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (10,10), 
+                 tile_spacing=(1,1)))
+    image.save('filters_corruption_0.png') 
+ 
+    #####################################
+    # BUILDING THE MODEL CORRUPTION 30% #
+    #####################################
+
+    rng        = numpy.random.RandomState(123)
+    theano_rng = RandomStreams( rng.randint(2**30))
+
+    da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
+            n_visible = S_DIM * F_DIM * X_DIM, n_hidden = 1000)
+
+    cost, updates = da.get_cost_updates(corruption_level = 0.3,
+                                learning_rate = learning_rate)
+
+    
+    train_da = theano.function([index], cost, updates = updates,
+         givens = {x:train_set_x[index*batch_size:(index+1)*batch_size]})
+
+    start_time = time.clock()
+
+    ############
+    # TRAINING #
+    ############
+
+    # go through training epochs
+    for epoch in xrange(training_epochs):
+        # go through trainng set
+        c = []
+        for batch_index in xrange(n_train_batches):
+            c.append(train_da(batch_index))
+
+        print 'Training epoch %d, cost '%epoch, numpy.mean(c)
+
+    end_time = time.clock()
+
+    training_time = (end_time - start_time)
+
+    print >> sys.stderr, ('The 30% corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % (training_time/60.))
+
+    image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
+                 img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (10,10), 
+                 tile_spacing=(1,1)))
+    image.save('filters_corruption_30.png') 
+ 
+    os.chdir('../')
+
+
+if __name__ == "__main__":    
+    # lame --preset cbr 48kbit -m mono
     ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)) = \
-        load_data("/home/dmitry/w/mp3tocsv/hhgttg01010060.mp3")
+        load_data(r"/home/dmitry/mp3/hhgttg0101006048k.mp3")
 
 
     from utils import tile_raster_images
@@ -120,6 +246,11 @@ if __name__ == "__main__":
     print "len(train_set_x.value.T)", len(train_set_x.value)
     image = PIL.Image.fromarray(tile_raster_images( X = train_set_x.value,
              img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (len(train_set_x.value)//10,10),
-             tile_spacing=(2,2), scale_rows_to_unit_interval = False))
+             tile_spacing=(1,1), scale_rows_to_unit_interval = False))
     image.save('hhgttg01010060.png')
+
+
+    from dA import dA
+    test_dA()
+    quit()
 
