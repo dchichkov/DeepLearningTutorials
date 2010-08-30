@@ -15,11 +15,11 @@ import os
 from theano.tensor.shared_randomstreams import RandomStreams
 
 from utils import tile_raster_images
-from logistic_sgd import load_data
+from load_mp3 import *
 
 class RBM(object):
     """Restricted Boltzmann Machine (RBM)  """
-    def __init__(self, input=None, n_visible=784, n_hidden=500, \
+    def __init__(self, input=None, n_visible=S_DIM * F_DIM * X_DIM, n_hidden=1000, \
         W = None, hbias = None, vbias = None, numpy_rng = None, 
         theano_rng = None):
         """ 
@@ -302,7 +302,7 @@ class RBM(object):
 def test_rbm(learning_rate=0.1, training_epochs = 15,
              dataset='../data/mnist.pkl.gz', batch_size = 20,
              n_chains = 20, n_samples = 10, output_folder = 'rbm_plots',
-             n_hidden = 500):
+             n_hidden = 1000):
     """
     Demonstrate how to train and afterwards sample from it using Theano.
 
@@ -341,7 +341,7 @@ def test_rbm(learning_rate=0.1, training_epochs = 15,
     persistent_chain = theano.shared(numpy.zeros((batch_size, n_hidden),dtype=theano.config.floatX))
 
     # construct the RBM class
-    rbm = RBM( input = x, n_visible=28*28, \
+    rbm = RBM( input = x, n_visible=S_DIM * F_DIM * X_DIM, \
                n_hidden = n_hidden, numpy_rng = rng, theano_rng = theano_rng)
 
     # get the cost and the gradient corresponding to one step of CD-15
@@ -380,7 +380,7 @@ def test_rbm(learning_rate=0.1, training_epochs = 15,
         plotting_start = time.clock()
         # Construct image from the weight matrix 
         image = PIL.Image.fromarray(tile_raster_images( X = rbm.W.value.T,
-                 img_shape = (28,28),tile_shape = (10,10), 
+                 img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (10,10), 
                  tile_spacing=(1,1)))
         image.save('filters_at_epoch_%i.png'%epoch)
         plotting_stop = time.clock()
@@ -424,25 +424,24 @@ def test_rbm(learning_rate=0.1, training_epochs = 15,
     # samples for reinitializing the state of our persistent chain
     sample_fn = theano.function([], [vis_mfs[-1], vis_samples[-1]],
                                                          updates = updates)
-
-
-    # create a space to store the image for plotting ( we need to leave 
-    # room for the tile_spacing as well)
-    image_data = numpy.zeros((29*n_samples+1,29*n_chains-1),dtype='uint8')
     for idx in xrange(n_samples):
         # generate `plot_every` intermediate samples that we discard, because successive samples in the chain are too correlated
         vis_mf, vis_sample = sample_fn()
-        print ' ... plotting sample ', idx
-        image_data[29*idx:29*idx+28,:] = tile_raster_images( 
-                X = vis_mf,
-                img_shape = (28,28),
-                tile_shape = (1, n_chains),
-                tile_spacing = (1,1))
+        print ' ... plotting sample ', idx       
+        image = PIL.Image.fromarray(
+                    tile_raster_images( 
+                            X = vis_mf,
+                            img_shape = (S_DIM, F_DIM * X_DIM),
+                            tile_shape = (1, n_chains),
+                            tile_spacing = (1,1)))
+        image.save('sample-%d.png' %idx)
         # construct image
     
-    image = PIL.Image.fromarray(image_data)
-    image.save('samples.png')
     os.chdir('../')
 
 if __name__ == '__main__':
-    test_rbm()
+    from dA import dA
+    d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
+    dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
+    #dataset = ["/home/dmitry/mp3/hhgttg0101006048k.mp3"]
+    test_rbm(dataset = dataset[:10], training_epochs = 15)

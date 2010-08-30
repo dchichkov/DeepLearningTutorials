@@ -2,18 +2,19 @@
 # -*- coding: utf-8  -*-
 from __future__ import division
 
-import mad, numpy, random, os
+import mad, numpy, random, os, time, cPickle, gzip, sys
 from theano.tensor.shared_randomstreams import RandomStreams
 from utils import tile_raster_images
+import matplotlib.pyplot
 import theano
 import theano.tensor as T
 
 F_DIM = 1   # 2  frames
 X_DIM = 36  # 36 samples
-S_DIM = 16  # 16  subbands
+S_DIM = 8   # 8  subbands
 
 
-#        TIME  [SAMPLES]
+#        SAMPLES [MDCTed]
 #   S  ------------------->
 #   U  |  
 #   B  |   amplitudes 
@@ -35,7 +36,6 @@ def load_data(dataset):
     # LOAD DATA #
     #############
     print '... loading data'
-    mf = mad.MadFile(dataset)
     
     
     frames = []
@@ -44,18 +44,20 @@ def load_data(dataset):
         channel = 0
         for sample in xrange(X_DIM):
             for subband in reversed(xrange(S_DIM)):
-                frame.append((mf.subband_value(channel, sample, subband) + 1.0) / 2)
+                frame.append((mf.subband_value(channel, sample, subband) + 1.0) / 2.0)
                 # fake it
                 #frame.append(subband / S_DIM * len(frames) / 2294)
         frames.append(frame)
                    
      # frequency domain filter
-    mf.set_filter_callback(fCallback)
-    while mf.read():
-        pass
+    for f in dataset:
+        mf = mad.MadFile(f)
+        mf.set_filter_callback(fCallback)
+        while mf.read():
+            pass
     
     # corpus size
-    (TRAIN, VALID, TEST) = (60, 0, 0)
+    (TRAIN, VALID, TEST) = (60, 1, 1)
     SIZE = len(frames) // (TRAIN+VALID+TEST)
     (TRAIN, VALID, TEST) = (TRAIN * SIZE, VALID * SIZE, TEST * SIZE)
     print 'frames =', len(frames), 'TRAIN = ', TRAIN
@@ -234,23 +236,25 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
 
 
 if __name__ == "__main__":    
+    from dA import dA
+    d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
+    dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
+    dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
+
     # lame --preset cbr 48kbit -m mono
     ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)) = \
-        load_data(r"/home/dmitry/mp3/hhgttg0101006048k.mp3")
-
-
-    from utils import tile_raster_images
-    import PIL.Image
+        load_data(dataset[:1])
 
     #print "len(train_set_x)", len(train_set_x)
+    tN = 200
     print "len(train_set_x.value.T)", len(train_set_x.value)
-    image = PIL.Image.fromarray(tile_raster_images( X = train_set_x.value,
-             img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (len(train_set_x.value)//10,10),
-             tile_spacing=(1,1), scale_rows_to_unit_interval = False))
-    image.save('hhgttg01010060.png')
+    for i in xrange(len(train_set_x.value)//tN):
+        arr = tile_raster_images( X = train_set_x.value[i*tN:i*tN+tN],
+                                  img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (tN//10,10),
+                                  tile_spacing=(1,1), scale_rows_to_unit_interval = False,
+                                  output_pixel_vals = False)
+        matplotlib.pyplot.imsave(fname = 'hhgttg010100%d.png' % i, arr = arr)
 
 
-    from dA import dA
-    test_dA()
     quit()
-
+    test_dA(dataset = dataset[:1], training_epochs = 500)
