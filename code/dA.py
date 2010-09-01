@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8  -*-
-
 """
  This tutorial introduces denoising auto-encoders (dA) using Theano.
 
@@ -39,7 +36,7 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from load_mp3 import *
+from logistic_sgd import load_data
 from utils import tile_raster_images
 
 import PIL.Image
@@ -182,8 +179,7 @@ class dA(object):
                 is always 0 or 1, this don't change the result. This is needed to allow
                 the gpu to work correctly as it only support float32 for now.
         """
-        corruption = self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX)
-        return  input * corruption + (1 - corruption) * 0.5
+        return  self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX) * input
 
     
     def get_hidden_values(self, input):
@@ -203,10 +199,7 @@ class dA(object):
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
-
-        # L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
-        L = T.sum( T.abs_(z - self.x), axis=1 )
-
+        L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 ) 
         # note : L is now a vector, where each element is the cross-entropy cost 
         #        of the reconstruction of the corresponding example of the 
         #        minibatch. We need to compute the average of all these to get 
@@ -226,14 +219,11 @@ class dA(object):
 
 
 
-
-from load_mp3 import *
-
-def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/mp3/hhgttg01010060.mp3',
+def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.pkl.gz',
         batch_size = 20, output_folder = 'dA_plots' ):
 
     """
-    This demo is tested on /home/dmitry/mp3/hhgttg01010060.mp2
+    This demo is tested on MNIST
 
     :type learning_rate: float
     :param learning_rate: learning rate used for training the DeNosing AutoEncoder
@@ -267,7 +257,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = S_DIM * F_DIM * X_DIM, n_hidden = 1000)
+            n_visible = 28*28, n_hidden = 500)
 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
                                 learning_rate = learning_rate)
@@ -297,7 +287,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
 
     print >> sys.stderr, ('The no corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((training_time)/60.))
     image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                 img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (10,10), 
+                 img_shape = (28,28),tile_shape = (10,10), 
                  tile_spacing=(1,1)))
     image.save('filters_corruption_0.png') 
  
@@ -309,7 +299,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = S_DIM * F_DIM * X_DIM, n_hidden = 1000)
+            n_visible = 28*28, n_hidden = 500)
 
     cost, updates = da.get_cost_updates(corruption_level = 0.3,
                                 learning_rate = learning_rate)
@@ -340,16 +330,12 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
     print >> sys.stderr, ('The 30% corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % (training_time/60.))
 
     image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                 img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (10,10), 
+                 img_shape = (28,28),tile_shape = (10,10), 
                  tile_spacing=(1,1)))
     image.save('filters_corruption_30.png') 
  
     os.chdir('../')
 
 
-if __name__ == "__main__":    
-    d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
-    dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
-    #dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
-    test_dA(dataset = dataset[:5], training_epochs = 100)
-
+if __name__ == '__main__':
+    test_dA()

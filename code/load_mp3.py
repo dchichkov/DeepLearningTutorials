@@ -57,7 +57,7 @@ def load_data(dataset):
             pass
     
     # corpus size
-    (TRAIN, VALID, TEST) = (1, 0, 0)
+    (TRAIN, VALID, TEST) = (100, 1, 1)
     SIZE = len(frames) // (TRAIN+VALID+TEST)
     (TRAIN, VALID, TEST) = (TRAIN * SIZE, VALID * SIZE, TEST * SIZE)
     print 'frames =', len(frames), 'TRAIN = ', TRAIN

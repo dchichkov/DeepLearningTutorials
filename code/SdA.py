@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8  -*-
+
 """
  This tutorial introduces stacked denoising auto-encoders (SdA) using Theano.
 
@@ -40,6 +43,7 @@ from logistic_sgd import LogisticRegression
 from load_mp3 import *
 from mlp import HiddenLayer
 from dA import dA
+from dAau import dAau
 
 
 
@@ -139,12 +143,13 @@ class SdA(object):
             self.params.extend(sigmoid_layer.params)
         
             # Construct a denoising autoencoder that shared weights with this
-            # layer
-            dA_layer = dA(numpy_rng = numpy_rng, theano_rng = theano_rng, input = layer_input, 
-                          n_visible = input_size, 
-                          n_hidden  = hidden_layers_sizes[i],  
-                          W = sigmoid_layer.W, bhid = sigmoid_layer.b)
-            self.dA_layers.append(dA_layer)        
+            # layer, use dAau for the first layer
+            dAclass = (dA, dAau)[i == 0]
+            dA_layer = dAclass(numpy_rng = numpy_rng, theano_rng = theano_rng, input = layer_input, 
+                              n_visible = input_size, 
+                              n_hidden  = hidden_layers_sizes[i],  
+                              W = sigmoid_layer.W, bhid = sigmoid_layer.b)
+            self.dA_layers.append(dA_layer)                    
 
         
         # We now need to add a logistic layer on top of the MLP
@@ -352,6 +357,8 @@ def test_SdA( finetune_lr = 0.1, pretraining_epochs = 15, \
 
     print >> sys.stderr, ('The pretraining code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((end_time-start_time)/60.))
     
+    
+    return
     ########################
     # FINETUNING THE MODEL #
     ########################
