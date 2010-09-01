@@ -36,7 +36,8 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from logistic_sgd import LogisticRegression, load_data
+from logistic_sgd import LogisticRegression
+from load_mp3 import *
 from mlp import HiddenLayer
 from dA import dA
 
@@ -319,7 +320,7 @@ def test_SdA( finetune_lr = 0.1, pretraining_epochs = 15, \
     numpy_rng = numpy.random.RandomState(89677)
     print '... building the model'
     # construct the stacked denoising autoencoder class
-    sda = SdA( numpy_rng = numpy_rng, n_ins = 28*28, 
+    sda = SdA( numpy_rng = numpy_rng, n_ins = S_DIM * F_DIM * X_DIM, 
                       hidden_layers_sizes = [1000,1000,1000],
                       n_outs = 10)
     
@@ -434,6 +435,8 @@ def test_SdA( finetune_lr = 0.1, pretraining_epochs = 15, \
 
 
 if __name__ == '__main__':
-    test_SdA()
-
+    d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
+    dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
+    dataset = ["/home/dmitry/mp3/hhgttg0101006048k.mp3"]
+    test_SdA(dataset = dataset[:1])
 
