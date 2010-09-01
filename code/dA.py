@@ -351,5 +351,5 @@ if __name__ == "__main__":
     d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
     dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
     #dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
-    test_dA(dataset = dataset[:5], training_epochs = 25)
+    test_dA(dataset = dataset[:5], training_epochs = 100)
 

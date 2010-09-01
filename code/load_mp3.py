@@ -57,7 +57,7 @@ def load_data(dataset):
             pass
     
     # corpus size
-    (TRAIN, VALID, TEST) = (60, 1, 1)
+    (TRAIN, VALID, TEST) = (1, 0, 0)
     SIZE = len(frames) // (TRAIN+VALID+TEST)
     (TRAIN, VALID, TEST) = (TRAIN * SIZE, VALID * SIZE, TEST * SIZE)
     print 'frames =', len(frames), 'TRAIN = ', TRAIN
@@ -116,29 +116,31 @@ def load_data(dataset):
 
 
 if __name__ == "__main__":    
+    import PIL.Image
     d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
     dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
-    dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
+    dataset = ["/home/dmitry/mp3/440-1k-2k.mp3"]
 
     # lame --preset cbr 48kbit -m mono
     ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)) = \
         load_data(dataset[:1])
         
-    from pca import pca
-    V,S,immean = pca(train_set_x.value[0:200])
-    train_set_x.value = V
-    print V
+    #from pca import pca
+    #V,S,immean = pca(train_set_x.value[0:200])
+    #train_set_x.value = V
+    #print V
     
     #matplotlib.pyplot.imshow(V[0].reshape(S_DIM, F_DIM * X_DIM).T)
     #matplotlib.pyplot.imshow(train_set_x.value[0].reshape(S_DIM, F_DIM * X_DIM), vmin = 0.0, vmax = 1.0)
     #matplotlib.pyplot.show()
        
-    #print "len(train_set_x)", len(train_set_x)
-    tN = 200
+    tN = 499
     print "len(train_set_x.value.T)", len(train_set_x.value)
     for i in xrange(len(train_set_x.value)//tN):
         arr = tile_raster_images( X = train_set_x.value[i*tN:i*tN+tN],
                                   img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (tN//10,10),
                                   tile_spacing=(1,1), scale_rows_to_unit_interval = False,
-                                  output_pixel_vals = False)
-        matplotlib.pyplot.imsave(fname = 'hhgttg010100%d.png' % i, arr = arr)#, vmin = 0.0, vmax = 1.0)
+                                  output_pixel_vals = True)
+        #matplotlib.pyplot.imsave(fname = 'hhgttg010100%d.png' % i, arr = arr)#, vmin = 0.0, vmax = 1.0)
+        PIL.Image.fromarray(arr).save('hhgttg010100%d.png' % i)
+
