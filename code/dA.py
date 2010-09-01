@@ -204,7 +204,7 @@ class dA(object):
         #        L will  be a vector, with one entry per example in minibatch
 
         # L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
-        L = - T.sum( T.abs_(z - self.x), axis=1 )
+        L = T.sum( T.abs_(z - self.x), axis=1 )
 
         # note : L is now a vector, where each element is the cross-entropy cost 
         #        of the reconstruction of the corresponding example of the 
@@ -349,7 +349,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='/home/dmitry/m
 if __name__ == "__main__":    
     d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
     dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
-    dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
+    #dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
     test_dA(dataset = dataset[:1], training_epochs = 15)
     quit()
 
