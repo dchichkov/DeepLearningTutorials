@@ -182,7 +182,8 @@ class dA(object):
                 is always 0 or 1, this don't change the result. This is needed to allow
                 the gpu to work correctly as it only support float32 for now.
         """
-        return  self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX) * input
+        corruption = self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX)
+        return  input * corruption + (1 - corruption) * 0.5
 
     
     def get_hidden_values(self, input):
@@ -350,20 +351,5 @@ if __name__ == "__main__":
     d = "/home/dmitry/mp3/01- Hitchhikers Guide to the Galaxy"
     dataset = sorted([os.path.join(d, f) for f in os.listdir(d)])
     #dataset = ["/home/dmitry/mp3/hhgttg01010060.mp3"]
-    test_dA(dataset = dataset[:1], training_epochs = 15)
-    quit()
-
-    # lame --preset cbr 48kbit -m mono
-    ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)) = \
-        load_data(dataset[:1])
-        
-    #print "len(train_set_x)", len(train_set_x)
-    tN = 200
-    print "len(train_set_x.value.T)", len(train_set_x.value)
-    for i in xrange(len(train_set_x.value)//tN):
-        arr = tile_raster_images( X = train_set_x.value[i*tN:i*tN+tN],
-                                  img_shape = (S_DIM, F_DIM * X_DIM),tile_shape = (tN//10,10),
-                                  tile_spacing=(1,1), scale_rows_to_unit_interval = False,
-                                  output_pixel_vals = False)
-        matplotlib.pyplot.imsave(fname = 'hhgttg010100%d.png' % i, arr = arr)#, vmin = 0.0, vmax = 1.0)
+    test_dA(dataset = dataset[:5], training_epochs = 25)
 
