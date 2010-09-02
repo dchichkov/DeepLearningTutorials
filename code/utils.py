@@ -19,7 +19,8 @@ def scale_to_unit_interval(ndar,eps=1e-8):
 
 
 def tile_raster_images(X, img_shape, tile_shape,tile_spacing = (0,0), 
-              scale_rows_to_unit_interval = True, output_pixel_vals = True):
+              scale_rows_to_unit_interval = True, output_pixel_vals = True,
+              transpose = False):
     """
     Transform an array with one flattened image per row, into an array in 
     which images are reshaped and layed out like tiles on a floor.
@@ -54,6 +55,9 @@ def tile_raster_images(X, img_shape, tile_shape,tile_spacing = (0,0),
     assert len(img_shape) == 2
     assert len(tile_shape) == 2
     assert len(tile_spacing) == 2
+
+    if transpose:
+        img_shape = tuple(reversed(img_shape))
 
     # The expression below can be re-written in a more C style as 
     # follows : 
@@ -114,9 +118,12 @@ def tile_raster_images(X, img_shape, tile_shape,tile_spacing = (0,0),
                         # if we should scale values to be between 0 and 1 
                         # do this by calling the `scale_to_unit_interval`
                         # function
-                        this_img = scale_to_unit_interval(X[tile_row * tile_shape[1] + tile_col].reshape( tuple(reversed(img_shape)) )).T
+                        this_img = scale_to_unit_interval(X[tile_row * tile_shape[1] + tile_col].reshape(img_shape))
                     else:
-                        this_img = X[tile_row * tile_shape[1] + tile_col].reshape( tuple(reversed(img_shape)) ).T
+                        this_img = X[tile_row * tile_shape[1] + tile_col].reshape( img_shape )
+
+                    if transpose:
+                        this_img = this_img.T
                     # add the slice to the corresponding position in the 
                     # output array
                     c = 1

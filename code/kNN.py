@@ -10,7 +10,7 @@ import numpy, time, cPickle, gzip, sys, os, heapq
 import theano
 import theano.tensor as T
 from operator import itemgetter
-
+from utils import tile_raster_images
 
 def load_data(dataset = ""):
     ''' Loads random 'distances' dataset:
@@ -70,9 +70,10 @@ def load_data(dataset = ""):
 
 
 def test_kNN( dataset ='',
-              k = 2,
+              k = 9,
               metric = T.abs_,
-              batch_size = 10000 ):
+              batch_size = 10000,
+              output_folder = 'plots' ):
 
     """
     This demo is tested on ''
@@ -84,7 +85,11 @@ def test_kNN( dataset ='',
     :param dataset: path to the picked dataset
 
     """
-    datasets = load_data(dataset)
+    
+    from load_mnist import load_data, A_DIM, B_DIM
+    import PIL.Image
+
+    datasets = load_data()
     (train_set_x, train_set_y) = datasets[0]
     (valid_set_x, valid_set_y) = datasets[1]
     (test_set_x , test_set_y ) = datasets[2]
@@ -126,8 +131,21 @@ def test_kNN( dataset ='',
         kNN.append(c[:k])
         
     end_time = time.clock()
+     
+    tN = 200; X = []
+    for test_index in xrange(test_set_x.value.shape[0]):
+        X.append(test_set_x.value[test_index])
+        for i in kNN[test_index]: X.append(train_set_x.value[i[0]])
+        if len(X) >= tN: break
         
-    for t in kNN: print t
+    arr = tile_raster_images( X = numpy.asarray(X),
+                                  img_shape = (A_DIM, B_DIM),tile_shape = (tN//10,10),
+                                  tile_spacing=(1,1), scale_rows_to_unit_interval = False,
+                                  output_pixel_vals = True)
+    PIL.Image.fromarray(arr).save('mnist-kNN.png')
+
+   
+    #for t in kNN: print t
     training_time = (end_time - start_time)
     print >> sys.stderr, ('The kNN search code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((training_time)/60.))
     os.chdir('../')
