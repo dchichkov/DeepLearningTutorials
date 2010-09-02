@@ -11,7 +11,7 @@ import theano.tensor as T
 
 # corpus size
 N_DIM = 576  # 576 dims
-(TRAIN, VALID, TEST) = (1000, 10, 10)
+(TRAIN, VALID, TEST) = (250000, 10, 10)
 
    
 def load_data(dataset = ""):
@@ -30,9 +30,9 @@ def load_data(dataset = ""):
     # make train/valid/test datasets
     train_set = ([[i/TRAIN]*N_DIM   for i in xrange(0, TRAIN)], 
                  [i for i in xrange(0, TRAIN)] )
-    valid_set = ([[i/TRAIN]*N_DIM for i in xrange(VALID)], 
+    valid_set = ([[i/VALID]*N_DIM for i in xrange(VALID)], 
                  [i for i in xrange(VALID)] )
-    test_set = ([[i/TRAIN]*N_DIM for i in xrange(TEST)],
+    test_set = ([[i/TEST]*N_DIM for i in xrange(TEST)],
                 [i for i in xrange(TEST)] )
     
 
