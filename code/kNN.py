@@ -2,7 +2,7 @@
 # -*- coding: utf-8  -*-
 
 """
- Naive kNN test.
+ Naive kNN test/benchmarks.
 """
 
 from __future__ import division
@@ -11,8 +11,10 @@ import theano
 import theano.tensor as T
 from operator import itemgetter
 from utils import tile_raster_images
-from logistic_sgd import load_data
 import PIL.Image
+
+# Needs: ../data/mnist.pkl.gz
+from logistic_sgd import load_data
 
 
 
@@ -43,13 +45,19 @@ def test_kNN( dataset ='../data/mnist.pkl.gz',
     # load data
     ((train_set_x, train_set_y), (valid_set_x, valid_set_y), 
         (test_set_x , test_set_y )) = load_data(dataset)
-    
-    
+        
     # compute number of minibatches for training, validation and testing
     train_set_size = min(train_set_x.value.shape[0], train_set_size)
     test_set_size = min(test_set_x.value.shape[0], test_set_size)
-    batch_size = train_set_size 
     n_train_batches = train_set_size / batch_size
+
+    # 
+    assert train_set_size > 0
+    assert test_set_size > 0
+    
+    # adjust img_shape    
+    assert train_set_x.value[0].shape[0] == img_shape[0] * img_shape[1]
+
 
     # allocate symbolic variables for the data
     indexMB = T.lscalar()    # index to a [mini]batch 
