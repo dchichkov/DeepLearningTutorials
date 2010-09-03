@@ -71,7 +71,7 @@ def test_kNN( dataset ='../data/mnist.pkl.gz',
     calc_distances = theano.function([indexMB, indexT], DistancesF,
          givens = {a:train_set_x[indexMB*batch_size:(indexMB+1)*batch_size], 
                    b:test_set_x[indexT]},
-         )#mode=profmode)
+         mode=profmode)
     
     # go through test set
     start_time = time.clock()
