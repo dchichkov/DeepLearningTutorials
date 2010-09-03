@@ -11,72 +11,22 @@ import theano
 import theano.tensor as T
 from operator import itemgetter
 from utils import tile_raster_images
-
-def load_data(dataset = ""):
-    ''' Loads random 'distances' dataset:
-         [[label/N, label/N, ...] : label, ...] for label in [0..N]
-
-    :type dataset: string
-    :param dataset: the path to the dataset (ignored)
-    '''
-
-    #############
-    # LOAD DATA #
-    #############
-    print '... generating data...',    
-    N_DIM = 576  # 576 dims, 1,000,000 items, 100 queries
-    (TRAIN, VALID, TEST) = (1000000, 1000, 1000)
-
-    # make train/valid/test datasets
-    train_set = ([[i/TRAIN]*N_DIM   for i in xrange(0, TRAIN)],
-                 [i for i in xrange(0, TRAIN)] )
-    valid_set = ([[i/VALID]*N_DIM for i in xrange(VALID)],
-                 [i for i in xrange(VALID)] )
-    test_set = ([[i/TEST]*N_DIM for i in xrange(TEST)],
-                [i for i in xrange(TEST)] )
-    print '... done.'
-
-
-    def shared_dataset(data_xy):
-        """ Function that loads the dataset into shared variables
-
-        The reason we store our dataset in shared variables is to allow
-        Theano to copy it into the GPU memory (when code is run on GPU).
-        Since copying data into the GPU is slow, copying a minibatch everytime
-        is needed (the default behaviour if the data is not in a shared
-        variable) would lead to a large decrease in performance.
-        """
-        data_x, data_y = data_xy
-        shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
-        shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
-        # When storing data on the GPU it has to be stored as floats
-        # therefore we will store the labels as ``floatX`` as well
-        # (``shared_y`` does exactly that). But during our computations
-        # we need them as ints (we use labels as index, and if they are
-        # floats it doesn't make sense) therefore instead of returning
-        # ``shared_y`` we will have to cast it to int. This little hack
-        # lets ous get around this issue
-        return shared_x, T.cast(shared_y, 'int32')
-
-    print '... generating shared dataset...',    
-    test_set_x,  test_set_y  = shared_dataset(test_set)
-    valid_set_x, valid_set_y = shared_dataset(valid_set)
-    train_set_x, train_set_y = shared_dataset(train_set)
-    rval = [(train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)]
-    print ' ...done.'
-    return rval
+from logistic_sgd import load_data
+import PIL.Image
 
 
 
-
-def test_kNN( dataset ='',
+def test_kNN( dataset ='../data/mnist.pkl.gz',
               k = 9,
-              metric = T.abs_,
+              distance = T.sqr,
               batch_size = 10000,
+              train_set_size = float('infinity'),
+              test_set_size = 1000,
+              img_shape = (28, 28),
               output_folder = 'plots' ):
 
     """
-    This demo is tested on ''
+    This demo is tested on '../data/mnist.pkl.gz'
 
     :type batch_size: int
     :param batch_size: batch_size used for training 
@@ -86,16 +36,20 @@ def test_kNN( dataset ='',
 
     """
     
-    from load_mnist import load_data, A_DIM, B_DIM
-    import PIL.Image
+    from theano import ProfileMode
+    profmode = theano.ProfileMode(optimizer='fast_run', linker=theano.gof.OpWiseCLinker())
 
-    datasets = load_data()
-    (train_set_x, train_set_y) = datasets[0]
-    (valid_set_x, valid_set_y) = datasets[1]
-    (test_set_x , test_set_y ) = datasets[2]
-
+    
+    # load data
+    ((train_set_x, train_set_y), (valid_set_x, valid_set_y), 
+        (test_set_x , test_set_y )) = load_data(dataset)
+    
+    
     # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.value.shape[0] / batch_size
+    train_set_size = min(train_set_x.value.shape[0], train_set_size)
+    test_set_size = min(test_set_x.value.shape[0], test_set_size)
+    batch_size = train_set_size 
+    n_train_batches = train_set_size / batch_size
 
     # allocate symbolic variables for the data
     indexMB = T.lscalar()    # index to a [mini]batch 
@@ -111,43 +65,64 @@ def test_kNN( dataset ='',
     #############################################
     # Exhaustive kNN queries for the test set   #
     #############################################
-    DistancesF = T.sum( metric(a - b), axis=1 )        
+    
+    # define theano.function
+    DistancesF = T.sum( distance(a - b), axis=1 )        
     calc_distances = theano.function([indexMB, indexT], DistancesF,
          givens = {a:train_set_x[indexMB*batch_size:(indexMB+1)*batch_size], 
-                   b:test_set_x[indexT]})
+                   b:test_set_x[indexT]},
+         )#mode=profmode)
     
+    # go through test set
     start_time = time.clock()
-
-    # go through training set
     kNN = []
-    for test_index in xrange(test_set_x.value.shape[0]):
+    for test_index in xrange(test_set_size):
         c = []
         for batch_index in xrange(n_train_batches):
             batchDistances = calc_distances(batch_index, test_index)
             batchKNN = [(batch_index * batch_size + i, batchDistances[i]) \
                             for i in batchDistances.argsort()[:k] ]
             c.extend(batchKNN)
+            
         c.sort(key=itemgetter(1))
         kNN.append(c[:k])
         
-    end_time = time.clock()
-     
-    tN = 200; X = []
-    for test_index in xrange(test_set_x.value.shape[0]):
-        X.append(test_set_x.value[test_index])
-        for i in kNN[test_index]: X.append(train_set_x.value[i[0]])
-        if len(X) >= tN: break
+        # print out time/ETA
+        if(test_index and not test_index % 100):
+            test_time = time.clock() - start_time + 0.00000001; 
+            ETA = ((test_time / test_index) * test_set_size - test_time); 
+            print "%.1f seconds; test %d (%d); ETA %.1f seconds" % (test_time, test_index, test_set_size, ETA),
+            print "Gdists/sec = %f (3 flop/dist)" % (28*28*train_set_size*test_index / 1000000000 / test_time)
         
-    arr = tile_raster_images( X = numpy.asarray(X),
-                                  img_shape = (A_DIM, B_DIM),tile_shape = (tN//10,10),
-                                  tile_spacing=(1,1), scale_rows_to_unit_interval = False,
-                                  output_pixel_vals = True)
-    PIL.Image.fromarray(arr).save('mnist-kNN.png')
-
-   
+    end_time = time.clock()
+    
     #for t in kNN: print t
     training_time = (end_time - start_time)
+    profmode.print_summary()
     print >> sys.stderr, ('The kNN search code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((training_time)/60.))
+    
+    
+    ### FIXME, why using test_set_x.value[i] directly eats memory? 
+    ###        the whole thing gets transferred from the GPU?
+    #  
+    # X = [train_set_x.value[i] for i in xrange(train_set_x.value.shape[0])]
+     
+    #############################################
+    # Plot Results                              #
+    #############################################
+    tN = 100; X = []
+    for test_index in xrange(test_set_size):
+        X.append(numpy.array(test_set_x.value[test_index]))                          
+        for i in kNN[test_index]: X.append(numpy.array(train_set_x.value[i[0]]))
+        if len(X) >= tN: break
+    
+    plot_file_name = os.path.split(dataset)[1] + "-kNN.png"
+    PIL.Image.fromarray( tile_raster_images( numpy.asarray(X),
+                              img_shape = img_shape, tile_shape = (tN//(1+k),10),
+                              tile_spacing=(1,1), scale_rows_to_unit_interval = False,
+                              output_pixel_vals = True)).save(plot_file_name)
+    print >> sys.stderr, ("Produced plot %s/%s (1T%dNN)" % (output_folder, plot_file_name, k)) 
+    
     os.chdir('../')
 
 

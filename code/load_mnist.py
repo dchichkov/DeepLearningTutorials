@@ -37,7 +37,7 @@ def load_data(dataset = '../data/mnist.pkl.gz'):
     train_set, valid_set, test_set = cPickle.load(f)
     f.close()
 
-    test_set = (test_set[0][:20], test_set[1][:20])
+    test_set = (test_set[0][:200], test_set[1][:200])
     print train_set[1][:10]
 
     def shared_dataset(data_xy):
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     ((train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)) = \
         load_data()
 
-    tN = 200
+    tN = 2000
     print "len(train_set_x.value.T)", len(train_set_x.value)
     for i in xrange(1): # xrange(len(train_set_x.value)//tN):
         X = [train_set_x.value[j] for j in xrange(i*tN, i*tN+tN)]
